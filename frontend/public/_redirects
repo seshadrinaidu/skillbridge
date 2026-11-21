@@ -1,0 +1,5 @@
+/*
+  SPA routing: redirect all paths to index.html
+  Required for React Router to work on Render static hosting
+*/
+/* /index.html 200
