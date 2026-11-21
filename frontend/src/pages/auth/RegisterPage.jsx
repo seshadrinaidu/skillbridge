@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Eye, EyeOff, Loader2, AlertCircle, ArrowRight, GraduationCap, Users } from 'lucide-react'
+import { Eye, EyeOff, Loader2, AlertCircle, ArrowRight, GraduationCap } from 'lucide-react'
 import useAuthStore from '../../store/authStore'
 
 const TARGET_ROLES = [
@@ -37,6 +37,7 @@ export default function RegisterPage() {
     password: '',
     confirmPassword: '',
     targetRole: selectedTargetRole || 'Java Backend Developer',
+    timezone: 'Asia/Kolkata',
   })
   const [fieldErrors, setFieldErrors] = useState({})
 
@@ -60,6 +61,7 @@ export default function RegisterPage() {
       password: form.password,
       role,
       targetRole: role === 'STUDENT' ? form.targetRole : undefined,
+      timezone: form.timezone,
     })
 
     if (result.success) {
@@ -92,9 +94,6 @@ export default function RegisterPage() {
           <div className="auth-role-toggle">
             <button type="button" className={role === 'STUDENT' ? 'active' : ''} onClick={() => setRole('STUDENT')} aria-pressed={role === 'STUDENT'}>
               <GraduationCap size={16} /> Student
-            </button>
-            <button type="button" className={role === 'TRAINER' ? 'active' : ''} onClick={() => setRole('TRAINER')} aria-pressed={role === 'TRAINER'}>
-              <Users size={16} /> Trainer
             </button>
           </div>
         </fieldset>

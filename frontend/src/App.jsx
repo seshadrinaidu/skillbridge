@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from 'react'
+import React, { Suspense, lazy, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import useAuthStore from './store/authStore'
 import AppLayout from './components/layout/AppLayout'
@@ -32,14 +32,16 @@ const StudentProgress  = lazy(() => import('./pages/trainer/StudentProgress'))
 
 // ── Route Guards ───────────────────────────────────────────────────────────
 const PrivateRoute = ({ children, role }) => {
-  const { user, token } = useAuthStore()
+  const { user, token, isRestoring } = useAuthStore()
+  if (isRestoring) return <LoadingScreen />
   if (!token || !user) return <Navigate to="/login" replace />
   if (role && user?.role !== role) return <Navigate to="/" replace />
   return children
 }
 
 const PublicRoute = ({ children }) => {
-  const { token, user } = useAuthStore()
+  const { token, user, isRestoring } = useAuthStore()
+  if (isRestoring) return <LoadingScreen />
   if (token && user) {
     const dest = user?.role === 'TRAINER' ? '/trainer' : '/home'
     return <Navigate to={dest} replace />
@@ -48,6 +50,10 @@ const PublicRoute = ({ children }) => {
 }
 
 function App() {
+  const restoreSession = useAuthStore(state => state.restoreSession)
+  useEffect(() => {
+    restoreSession()
+  }, [restoreSession])
   return (
     <BrowserRouter>
       <Suspense fallback={<LoadingScreen />}>

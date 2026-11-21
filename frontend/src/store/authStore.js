@@ -8,6 +8,7 @@ const useAuthStore = create(
       user: null,
       token: null,
       isLoading: false,
+      isRestoring: true,
       error: null,
 
       login: async (credentials) => {
@@ -32,16 +33,25 @@ const useAuthStore = create(
             password: credentials.password,
           })
           const token = data?.token || data?.accessToken || data?.jwt
-          const profile = data?.user || data?.profile || data
+          if (!token) {
+            throw new Error('The server returned an invalid login response.')
+          }
+          localStorage.setItem('skillbridge_token', token)
+          let profile = data?.user || data?.profile || data
+          try {
+            const current = await authAPI.me()
+            profile = current.data
+          } catch {
+            // The login response is sufficient if /users/me is temporarily unavailable.
+          }
           const user = {
             ...profile,
             name: profile?.fullName || profile?.name,
             targetRole: profile?.targetJobRole || profile?.targetRole,
           }
-          if (!token || !user?.role) {
-            throw new Error('The server returned an invalid login response.')
+          if (!user?.role) {
+            throw new Error('The server returned an invalid user profile.')
           }
-          localStorage.setItem('skillbridge_token', token)
           set({ user, token, isLoading: false, error: null })
           return { success: true, user }
         } catch (err) {
@@ -99,16 +109,25 @@ const useAuthStore = create(
             timezone: userData.timeZone || userData.timezone,
           })
           const token = data?.token || data?.accessToken || data?.jwt
-          const profile = data?.user || data?.profile || data
+          if (!token) {
+            throw new Error('The server returned an invalid registration response.')
+          }
+          localStorage.setItem('skillbridge_token', token)
+          let profile = data?.user || data?.profile || data
+          try {
+            const current = await authAPI.me()
+            profile = current.data
+          } catch {
+            // The registration response is sufficient if /users/me is temporarily unavailable.
+          }
           const user = {
             ...profile,
             name: profile?.fullName || profile?.name,
             targetRole: profile?.targetJobRole || profile?.targetRole,
           }
-          if (!token || !user?.role) {
-            throw new Error('The server returned an invalid registration response.')
+          if (!user?.role) {
+            throw new Error('The server returned an invalid user profile.')
           }
-          localStorage.setItem('skillbridge_token', token)
           set({ user, token, isLoading: false, error: null })
           return { success: true, user }
         } catch (err) {
@@ -153,6 +172,34 @@ const useAuthStore = create(
 
       setUser: (user) => set({ user }),
       clearError: () => set({ error: null }),
+      restoreSession: async () => {
+        const token = localStorage.getItem('skillbridge_token')
+        if (!token) {
+          set({ user: null, token: null, isRestoring: false, error: null })
+          return { success: true }
+        }
+        if (token.startsWith('demo-')) {
+          set({ isRestoring: false })
+          return { success: true }
+        }
+        set({ token, isRestoring: true, error: null })
+        try {
+          const { data } = await authAPI.me()
+          const user = {
+            ...data,
+            name: data?.fullName || data?.name,
+            targetRole: data?.targetJobRole || data?.targetRole,
+          }
+          if (!user?.role) throw new Error('The server returned an invalid user profile.')
+          set({ user, token, isRestoring: false, error: null })
+          return { success: true, user }
+        } catch (err) {
+          localStorage.removeItem('skillbridge_token')
+          localStorage.removeItem('skillbridge_user')
+          set({ user: null, token: null, isRestoring: false, error: null })
+          return { success: false, error: err.response?.data?.message || err.message }
+        }
+      },
 
       isAuthenticated: () => !!get().token,
       isStudent: () => get().user?.role === 'STUDENT',

@@ -7,6 +7,7 @@ import com.skillbridge.ai.user.UserRepository;
 import com.skillbridge.ai.user.UserRole;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,8 +31,8 @@ public class AuthService {
 
     @Transactional
     public AuthDtos.AuthResponse register(AuthDtos.RegisterRequest request) {
-        if (request.role() == UserRole.ADMIN) {
-            throw new ApiException(403, "FORBIDDEN", "Public registration cannot create ADMIN accounts");
+        if (request.role() != UserRole.STUDENT) {
+            throw new ApiException(403, "FORBIDDEN", "Public registration is available only for student accounts");
         }
         if (users.existsByEmailIgnoreCase(request.email().trim())) {
             throw new ApiException(409, "CONFLICT", "An account already exists for this email");
@@ -54,8 +55,12 @@ public class AuthService {
     }
 
     public AuthDtos.AuthResponse login(AuthDtos.LoginRequest request) {
-        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(
-                request.email().trim().toLowerCase(), request.password()));
+        try {
+            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(
+                    request.email().trim().toLowerCase(), request.password()));
+        } catch (AuthenticationException ex) {
+            throw new ApiException(401, "UNAUTHORIZED", "Invalid email or password");
+        }
         User user = users.findByEmailIgnoreCase(request.email().trim())
                 .orElseThrow(() -> new ApiException(401, "UNAUTHORIZED", "Invalid email or password"));
         return authResponse(user);

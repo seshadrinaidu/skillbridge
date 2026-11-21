@@ -1,6 +1,7 @@
 package com.skillbridge.ai;
 
 import com.skillbridge.ai.enrollment.EnrollmentRepository;
+import com.skillbridge.ai.user.User;
 import com.skillbridge.ai.user.UserRepository;
 import com.skillbridge.ai.user.UserRole;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,6 +47,7 @@ class Phase1IntegrationTest {
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
                 .andExpect(jsonPath("$.user.role").value("STUDENT"))
                 .andReturn().getResponse().getContentAsString();
+        String token = response.replaceAll("(?s).*\\\"accessToken\\\"\\s*:\\s*\\\"([^\\\"]+)\\\".*", "$1");
 
         var user = users.findByEmailIgnoreCase("ada@example.com").orElseThrow();
         assertThat(passwordEncoder.matches("StrongPass123!", user.getPasswordHash())).isTrue();
@@ -58,23 +60,61 @@ class Phase1IntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty());
 
+        mvc.perform(get("/api/v1/users/me")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value("ada@example.com"));
+
+        mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"ada@example.com","password":"WrongPassword123!"}
+                                """))
+                .andExpect(status().isUnauthorized());
+
+        mvc.perform(get("/api/v1/users/me"))
+                .andExpect(status().isUnauthorized());
+
+        mvc.perform(get("/api/v1/users/me")
+                        .header("Authorization", "Bearer not-a-valid-jwt"))
+                .andExpect(status().isUnauthorized());
+
         mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isConflict());
     }
 
     @Test
-    void publicRegistrationCannotCreateAdmin() throws Exception {
+    void publicRegistrationCannotCreatePrivilegedRoles() throws Exception {
         mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"fullName":"Not Admin","email":"bad@example.com","password":"StrongPass123!",
                                  "timezone":"UTC","role":"ADMIN"}
                                 """))
                 .andExpect(status().isForbidden());
+
+        mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Not Trainer","email":"bad-trainer@example.com","password":"StrongPass123!",
+                                 "timezone":"UTC","role":"TRAINER"}
+                                """))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"missing-name@example.com","password":"short","role":"STUDENT"}
+                                """))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
     void trainerCreatesCourseAndStudentEnrollsOnce() throws Exception {
-        String trainerToken = register("Trainer One", "trainer@example.com", "TRAINER");
+        User trainer = new User();
+        trainer.setFullName("Trainer One");
+        trainer.setEmail("trainer@example.com");
+        trainer.setPasswordHash(passwordEncoder.encode("StrongPass123!"));
+        trainer.setRole(UserRole.TRAINER);
+        trainer.setTimezone("UTC");
+        users.save(trainer);
+        String trainerToken = login("trainer@example.com", "StrongPass123!");
         String courseResponse = mvc.perform(post("/api/v1/courses")
                         .header("Authorization", "Bearer " + trainerToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -118,6 +158,17 @@ class Phase1IntegrationTest {
                                  "timezone":"UTC","role":"%s"}
                                 """.formatted(name, email, role)))
                 .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return response.replaceAll("(?s).*\\\"accessToken\\\"\\s*:\\s*\\\"([^\\\"]+)\\\".*", "$1");
+    }
+
+    private String login(String email, String password) throws Exception {
+        String response = mvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","password":"%s"}
+                                """.formatted(email, password)))
+                .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
         return response.replaceAll("(?s).*\\\"accessToken\\\"\\s*:\\s*\\\"([^\\\"]+)\\\".*", "$1");
     }
