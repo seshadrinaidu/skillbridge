@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Eye, EyeOff, Loader2, AlertCircle, ArrowRight, GraduationCap } from 'lucide-react'
 import useAuthStore from '../../store/authStore'
+import { authAPI } from '../../lib/api'
 
 const TARGET_ROLES = [
   { value: 'Frontend Dev', label: 'Frontend Dev' },
@@ -40,6 +41,13 @@ export default function RegisterPage() {
     timezone: 'Asia/Kolkata',
   })
   const [fieldErrors, setFieldErrors] = useState({})
+  const [googleEnabled, setGoogleEnabled] = useState(false)
+
+  useEffect(() => {
+    authAPI.oauthStatus()
+      .then(({ data }) => setGoogleEnabled(Boolean(data?.googleEnabled)))
+      .catch(() => setGoogleEnabled(false))
+  }, [])
 
   const handleChange = (event) => {
     clearError()
@@ -170,6 +178,11 @@ export default function RegisterPage() {
       </form>
 
       <p className="auth-terms">By creating an account, you agree to the terms of use and privacy policy.</p>
+      {googleEnabled && (
+        <button type="button" className="auth-submit mt-3" onClick={() => { window.location.assign('/oauth2/authorization/google') }}>
+          Continue with Google
+        </button>
+      )}
       <div className="auth-demo-row">
         <button type="button" onClick={async () => {
           const result = await register({

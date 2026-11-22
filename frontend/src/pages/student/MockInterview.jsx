@@ -8,6 +8,7 @@ import {
   Code2, MessageSquare, Zap, Trophy, Eye, EyeOff
 } from 'lucide-react'
 import { interviewAPI } from '../../lib/api'
+import useAuthStore from '../../store/authStore'
 
 // ── Fade/slide variants ──────────────────────────────────────────────────────
 const fadeUp = {
@@ -329,12 +330,14 @@ function SessionReport({ report, onRetry, onDashboard }) {
 export default function MockInterview() {
   const navigate = useNavigate()
   const { id } = useParams()
+  const { token } = useAuthStore()
 
   // States
   const [view, setView] = useState('list') // 'list' | 'active' | 'report'
   const [showSetup, setShowSetup] = useState(false)
   const [sessions, setSessions] = useState(MOCK_SESSIONS)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [resumeBanner, setResumeBanner] = useState(false)
 
   // Active session state
@@ -374,9 +377,17 @@ export default function MockInterview() {
     setLoading(true)
     try {
       const res = await interviewAPI.createSession(config)
-      setSession({ ...config, questions: MOCK_QUESTIONS.slice(0, config.numQuestions / 5), id: res.data?.id || 'mock' })
-    } catch {
-      setSession({ ...config, questions: MOCK_QUESTIONS, id: 'mock' })
+      const questions = res.data?.questions
+      if (!Array.isArray(questions) || questions.length === 0) throw new Error('The server returned no interview questions.')
+      setSession({ ...config, questions, id: res.data.id })
+    } catch (err) {
+      if (token?.startsWith('demo-')) {
+        setSession({ ...config, questions: MOCK_QUESTIONS.slice(0, config.numQuestions || 10), id: 'demo-session' })
+      } else {
+        setError(err.response?.data?.message || err.message || 'Unable to create an interview session.')
+        setLoading(false)
+        return
+      }
     }
     setAnswers({}); setHints({}); setHintUsed({}); setFlagged({}); setCurrentQ(0); setElapsed(0)
     localStorage.setItem('skillbridge_interview_session', JSON.stringify({ config, started: Date.now() }))
@@ -392,14 +403,36 @@ export default function MockInterview() {
 
   const handleSubmit = async () => {
     const q = session.questions[currentQ]
-    try { await interviewAPI.submitAnswer(session.id, { questionId: q.id, answer: answers[currentQ] || '' }) } catch {}
+    try { await interviewAPI.submitAnswer(session.id, { questionId: q.id, answer: answers[currentQ] || '' }) }
+    catch (err) {
+      if (!token?.startsWith('demo-')) setError(err.response?.data?.message || err.message || 'Unable to save the interview answer.')
+    }
     if (currentQ < session.questions.length - 1) { setCurrentQ(c => c + 1) }
     else { handleEndSession() }
   }
 
   const handleEndSession = async () => {
     clearInterval(timerRef.current)
-    try { await interviewAPI.endSession(session.id) } catch {}
+    if (!token?.startsWith('demo-')) {
+      try {
+        await interviewAPI.endSession(session.id)
+        const { data } = await interviewAPI.getReport(session.id)
+        setReport({
+          score: data.scorePercent ?? 0,
+          questions: session.questions,
+          mode: session.mode,
+          timeTaken: formatTime(elapsed),
+          hintsUsed: Object.keys(hintUsed).length,
+          recommendations: data.recommendations,
+        })
+        localStorage.removeItem('skillbridge_interview_session')
+        setView('report')
+        return
+      } catch (err) {
+        setError(err.response?.data?.message || err.message || 'Unable to complete the interview session.')
+        return
+      }
+    }
     localStorage.removeItem('skillbridge_interview_session')
     // Build mock report
     const qs = session.questions.map((q, i) => ({
@@ -422,6 +455,11 @@ export default function MockInterview() {
   // ── Render list view ───────────────────────────────────────────────────────
   if (view === 'list') return (
     <div className="page-container py-8 space-y-8">
+      {error && (
+        <div className="auth-error" role="alert">
+          <AlertCircle size={16} /><span>{error}</span>
+        </div>
+      )}
       {/* Resume banner */}
       <AnimatePresence>
         {resumeBanner && (

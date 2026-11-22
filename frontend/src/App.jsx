@@ -11,6 +11,7 @@ const LoginPage        = lazy(() => import('./pages/auth/LoginPage'))
 const RegisterPage     = lazy(() => import('./pages/auth/RegisterPage'))
 const OnboardingPage   = lazy(() => import('./pages/auth/OnboardingPage'))
 const LogoutPage       = lazy(() => import('./pages/auth/LogoutPage'))
+const OAuthCallbackPage = lazy(() => import('./pages/auth/OAuthCallbackPage'))
 
 // Student
 const StudentHome      = lazy(() => import('./pages/student/StudentHome'))
@@ -64,6 +65,7 @@ function App() {
             <Route path="/login"    element={<PublicRoute><LoginPage /></PublicRoute>} />
             <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
             <Route path="/logout"   element={<LogoutPage />} />
+            <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
           </Route>
           <Route path="/onboarding" element={
             <PrivateRoute role="STUDENT"><OnboardingPage /></PrivateRoute>

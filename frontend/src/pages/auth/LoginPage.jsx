@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Eye, EyeOff, Loader2, AlertCircle, ArrowRight } from 'lucide-react'
 import useAuthStore from '../../store/authStore'
+import { authAPI } from '../../lib/api'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -10,6 +11,13 @@ export default function LoginPage() {
   const [showPass, setShowPass] = useState(false)
   const [form, setForm] = useState({ email: '', password: '' })
   const [localError, setLocalError] = useState('')
+  const [googleEnabled, setGoogleEnabled] = useState(false)
+
+  useEffect(() => {
+    authAPI.oauthStatus()
+      .then(({ data }) => setGoogleEnabled(Boolean(data?.googleEnabled)))
+      .catch(() => setGoogleEnabled(false))
+  }, [])
 
   const handleChange = (event) => {
     clearError()
@@ -93,6 +101,11 @@ export default function LoginPage() {
       </form>
 
       <p className="auth-terms">By continuing, you agree to SkillBridge terms of use and privacy policy.</p>
+      {googleEnabled && (
+        <button type="button" className="auth-submit mt-3" onClick={() => { window.location.assign('/oauth2/authorization/google') }}>
+          Continue with Google
+        </button>
+      )}
       <div className="auth-demo-row" aria-label="Explore without a backend">
         <button type="button" onClick={async () => {
           const result = await login({ demo: true, role: 'STUDENT', email: 'student@skillbridge.demo', password: 'demo' })

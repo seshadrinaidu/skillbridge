@@ -32,9 +32,19 @@ public class DashboardController {
         long completedLessons=lessonProgress.countByStudentIdAndCompletedAtIsNotNull(student.getId());
         int assessmentAttempts=attempts.findByStudentId(student.getId()).size();
         int skills=performance.findByStudentId(student.getId()).size();
-        return Map.of("studentId",student.getId(),"enrolledCourses",enrollments.findByStudentIdOrderByEnrolledAtDesc(student.getId()).size(),
-                "completedLessons",completedLessons,"assessmentAttempts",assessmentAttempts,"skillsAssessed",skills,
-                "practiceStreak",0,"recentSubmissions",java.util.List.of());
+        java.util.LinkedHashMap<String,Object> stats=new java.util.LinkedHashMap<>();
+        stats.put("studentId",student.getId());
+        stats.put("enrolledCourses",enrollments.findByStudentIdOrderByEnrolledAtDesc(student.getId()).size());
+        stats.put("completedLessons",completedLessons);
+        stats.put("assessmentAttempts",assessmentAttempts);
+        stats.put("skillsAssessed",skills);
+        stats.put("practiceStreak",0);
+        stats.put("streak",0);
+        stats.put("problemsSolved",0);
+        stats.put("accuracy",0);
+        stats.put("timeToday",0);
+        stats.put("recentSubmissions",java.util.List.of());
+        return stats;
     }
 
     @GetMapping("/users/me/dashboard")

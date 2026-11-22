@@ -34,6 +34,13 @@ class Phase1IntegrationTest {
     }
 
     @Test
+    void googleOAuthStatusIsPublicAndNotEnabledWithoutCredentials() throws Exception {
+        mvc.perform(get("/api/v1/auth/oauth/status"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.googleEnabled").value(false));
+    }
+
+    @Test
     void studentCanRegisterLoginAndHasHashedPassword() throws Exception {
         String body = """
                 {"fullName":"Ada Student","email":"ada@example.com","password":"StrongPass123!",

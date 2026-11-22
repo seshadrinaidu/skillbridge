@@ -18,12 +18,23 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import jakarta.servlet.http.HttpServletResponse;
+import com.skillbridge.ai.auth.GoogleOAuthSuccessHandler;
+import org.springframework.beans.factory.annotation.Value;
 import java.util.Arrays;
 import java.util.List;
 
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
+    private final GoogleOAuthSuccessHandler googleOAuthSuccessHandler;
+    private final String frontendBaseUrl;
+
+    public SecurityConfig(GoogleOAuthSuccessHandler googleOAuthSuccessHandler,
+                          @Value("${app.frontend-base-url}") String frontendBaseUrl) {
+        this.googleOAuthSuccessHandler = googleOAuthSuccessHandler;
+        this.frontendBaseUrl = frontendBaseUrl;
+    }
+
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtFilter) throws Exception {
         http.csrf(csrf -> csrf.disable())
@@ -34,11 +45,17 @@ public class SecurityConfig {
                         .accessDeniedHandler(accessDeniedHandler()))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/logout", "/api/v1/auth/**").permitAll()
+                        .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/actuator/health").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/courses", "/api/v1/courses/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+        http.oauth2Login(oauth -> oauth
+                .successHandler(googleOAuthSuccessHandler)
+                .failureHandler((request, response, exception) ->
+                        response.sendRedirect(frontendBaseUrl + "/oauth/callback?error="
+                                + java.net.URLEncoder.encode("GOOGLE_AUTH_FAILED", java.nio.charset.StandardCharsets.UTF_8))));
         return http.build();
     }
 

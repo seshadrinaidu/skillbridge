@@ -38,7 +38,50 @@ public class InterviewController {
         interview.setTargetRole(body==null?student.getTargetJobRole():String.valueOf(body.getOrDefault("targetRole",student.getTargetJobRole())));
         interview.setMode(body==null?"GUIDED":String.valueOf(body.getOrDefault("mode","GUIDED")));
         interview=interviews.save(interview);
-        return Map.of("id",interview.getId(),"targetRole",interview.getTargetRole(),"mode",interview.getMode(),"status","ACTIVE");
+        int count=body==null?10:Math.max(1,Math.min(10,Integer.parseInt(String.valueOf(body.getOrDefault("numQuestions",10)))));
+        List<Map<String,Object>> questions=questionSet(interview.getTargetRole(),count);
+        Map<String,Object> response=new java.util.LinkedHashMap<>();
+        response.put("id",interview.getId());
+        response.put("targetRole",interview.getTargetRole());
+        response.put("mode",interview.getMode());
+        response.put("status","ACTIVE");
+        response.put("questions",questions);
+        return response;
+    }
+
+    @PostMapping("/questions")
+    public Map<String,Object> questions(@RequestBody(required=false) Map<String,Object> body,Authentication authentication){
+        currentUser(authentication);
+        int count=body==null?10:Math.max(1,Math.min(10,Integer.parseInt(String.valueOf(body.getOrDefault("numQuestions",10)))));
+        String role=body==null?"Java Backend Developer":String.valueOf(body.getOrDefault("targetRole","Java Backend Developer"));
+        return Map.of("questions",questionSet(role,count));
+    }
+
+    private List<Map<String,Object>> questionSet(String role,int count){
+        String[] texts={
+                "Explain OOP and describe a real-world use case.",
+                "How would you detect a cycle in a linked list?",
+                "Explain how you would optimize a slow SQL query.",
+                "Design a REST API for course enrollment.",
+                "Describe transaction isolation levels and dirty reads.",
+                "How would you cache frequently requested data?",
+                "Explain Java garbage collection basics.",
+                "Compare a stack and a queue.",
+                "How would you secure an API with JWT?",
+                "Describe trade-offs in microservice communication."
+        };
+        List<Map<String,Object>> result=new java.util.ArrayList<>();
+        for(int i=0;i<count;i++){
+            Map<String,Object> item=new java.util.LinkedHashMap<>();
+            item.put("id","q-"+(i+1));
+            item.put("topic",i%3==0?"Core Concepts":i%3==1?"Data Structures":"System Design");
+            item.put("difficulty",i<3?"Easy":i<7?"Medium":"Hard");
+            item.put("type","theory");
+            item.put("text",texts[i]+" Target role: "+role+".");
+            item.put("hint","Use a concrete example and explain trade-offs.");
+            result.add(item);
+        }
+        return result;
     }
     @GetMapping("/{id}")
     public Map<String,Object> get(@PathVariable Long id,Authentication authentication){

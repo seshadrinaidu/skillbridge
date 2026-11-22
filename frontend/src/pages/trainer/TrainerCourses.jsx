@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Plus, BookOpen, Clock, Users, ArrowUpRight } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { courseAPI, trainerAPI } from '../../lib/api'
 
 export default function TrainerCourses() {
@@ -19,16 +20,16 @@ export default function TrainerCourses() {
           <h1 className="text-2xl font-bold">Course Management</h1>
           <p className="text-sm text-text-secondary">Organize syllabus, quizzes, and output prediction tasks</p>
         </div>
-        <button className="btn-primary btn-sm flex items-center gap-1.5">
+        <Link to="/trainer/courses/new" className="btn-primary btn-sm flex items-center gap-1.5">
           <Plus size={16} /> New Course
-        </button>
+        </Link>
       </div>
 
       {error && <div className="auth-error mb-6" role="alert">{error}</div>}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {courses.map(c => (
-          <div key={c.id} className="card-glass p-5 flex flex-col justify-between">
+          <Link key={c.id} to={`/trainer/courses/${c.id}`} className="card-glass p-5 flex flex-col justify-between">
             <div>
               <div className="flex justify-between items-start mb-3">
                 <span className={`badge ${c.published ? 'badge-success' : 'badge-warning'}`}>
@@ -45,7 +46,7 @@ export default function TrainerCourses() {
               <span className="text-xs text-brand-400">Manage Curriculum</span>
               <ArrowUpRight size={16} className="text-brand-400" />
             </div>
-          </div>
+          </Link>
         ))}
       </div>
     </div>
