@@ -97,8 +97,10 @@ export default function PerformancePage() {
         setStats(statsRes.data || MOCK_STATS)
         setTopics(topicsRes.data?.topics || MOCK_TOPICS)
         setHistory(histRes.data?.history || MOCK_HISTORY)
-      } catch {
-        // use mock data
+      } catch (err) {
+        setStats({ solved: 0, accuracy: 0, streak: 0, xp: 0 })
+        setTopics([])
+        setHistory([])
       } finally {
         setLoading(false)
       }

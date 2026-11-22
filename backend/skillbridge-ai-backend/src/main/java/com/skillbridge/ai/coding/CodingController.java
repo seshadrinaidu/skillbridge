@@ -21,11 +21,13 @@ public class CodingController {
     private final CodingDraftRepository drafts;
     private final UserRepository users;
     private final String judgeUrl;
+    private final Judge0ExecutionService judge0;
 
     public CodingController(CodingProblemRepository problems,CodingSubmissionRepository submissions,
                             CodingDraftRepository drafts,UserRepository users,
-                            @Value("${JUDGE0_URL:}") String judgeUrl){
-        this.problems=problems;this.submissions=submissions;this.drafts=drafts;this.users=users;this.judgeUrl=judgeUrl;
+                            @Value("${JUDGE0_URL:}") String judgeUrl,
+                            Judge0ExecutionService judge0){
+        this.problems=problems;this.submissions=submissions;this.drafts=drafts;this.users=users;this.judgeUrl=judgeUrl;this.judge0=judge0;
     }
 
     @GetMapping("/problems")
@@ -49,16 +51,28 @@ public class CodingController {
     @PostMapping("/problems/{id}/run")
     public Map<String,Object> run(@PathVariable Long id,@RequestBody @Valid CodingDtos.SubmissionRequest request){
         problems.findById(id).orElseThrow(()->new ApiException(404,"NOT_FOUND","Problem not found"));
-        if(judgeUrl==null||judgeUrl.isBlank()) throw new ApiException(503,"JUDGE_UNAVAILABLE","Sandboxed code execution is not configured");
-        throw new ApiException(503,"JUDGE_UNAVAILABLE","Sandboxed code execution is not configured");
+        if(!judge0.isConfigured()) throw new ApiException(503,"JUDGE_UNAVAILABLE","Sandboxed code execution is not configured");
+        return judge0.execute(request.code(), "");
     }
 
     @PostMapping("/problems/{id}/submit")
     @Transactional
     public CodingDtos.SubmissionResponse submit(@PathVariable Long id,@RequestBody @Valid CodingDtos.SubmissionRequest request,Authentication authentication){
         CodingProblem problem=problems.findById(id).orElseThrow(()->new ApiException(404,"NOT_FOUND","Problem not found"));
-        if(judgeUrl==null||judgeUrl.isBlank()) throw new ApiException(503,"JUDGE_UNAVAILABLE","No submission verdict can be issued until a sandboxed judge is configured");
-        throw new ApiException(503,"JUDGE_UNAVAILABLE","No submission verdict can be issued until a sandboxed judge is configured");
+        if(!judge0.isConfigured()) throw new ApiException(503,"JUDGE_UNAVAILABLE","No submission verdict can be issued until a sandboxed judge is configured");
+        Map<String,Object> result=judge0.execute(request.code(),"");
+        String status=String.valueOf(result.getOrDefault("status","UNKNOWN"));
+        boolean accepted="Accepted".equalsIgnoreCase(status);
+        CodingSubmission submission=new CodingSubmission();
+        submission.setStudent(currentUser(authentication));
+        submission.setProblem(problem);
+        submission.setLanguage(request.language());
+        submission.setCode(request.code());
+        submission.setVerdict(accepted?"AC":"WA");
+        submission.setScorePercent(accepted?100:0);
+        submission.setFeedback(String.valueOf(result.getOrDefault("compileOutput",result.getOrDefault("message","Execution completed"))));
+        submission=submissions.save(submission);
+        return submission(submission);
     }
 
     @GetMapping("/submissions/me")

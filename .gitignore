@@ -18,3 +18,7 @@ build/
 .vscode/
 *.log
 .DS_Store
+playwright-report/
+test-results/
+**/playwright-report/
+**/test-results/
